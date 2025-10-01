@@ -12,12 +12,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "service_details", uniqueConstraints = @UniqueConstraint(columnNames = {"uuid"}))
+@Table(name = "service_faqs", uniqueConstraints = @UniqueConstraint(columnNames = {"uuid"}))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
-public class ServiceDetail {
+public class ServiceFAQ {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,10 +27,10 @@ public class ServiceDetail {
     private String uuid = UUID.randomUUID().toString();
 
     @Column(length = 255, nullable = false)
-    private String heading;
+    private String question;
 
     @Column(columnDefinition = "TEXT", nullable = false)
-    private String details;
+    private String answer;
 
     @Column(nullable = false)
     private Integer displayOrder;

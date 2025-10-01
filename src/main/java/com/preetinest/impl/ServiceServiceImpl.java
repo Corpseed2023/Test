@@ -1,8 +1,10 @@
 package com.preetinest.impl;
 
 import com.preetinest.dto.ServiceRequestDTO;
-import com.preetinest.entity.ServiceDetail;
+import com.preetinest.dto.response.ServiceDetailResponseDTO;
+import com.preetinest.dto.response.ServiceResponseDTO;
 import com.preetinest.entity.Services;
+import com.preetinest.entity.ServiceDetail;
 import com.preetinest.entity.SubCategory;
 import com.preetinest.entity.User;
 import com.preetinest.repository.ServiceDetailRepository;
@@ -79,36 +81,80 @@ public class ServiceServiceImpl implements ServiceService {
         service.setCreatedBy(createdBy);
 
         Services savedService = serviceRepository.save(service);
-        return mapToResponseDTO(savedService);
+        return mapToResponseMap(savedService);
     }
 
     @Override
     public Optional<Map<String, Object>> getServiceById(Long id) {
         return serviceRepository.findById(id)
-                .filter(s -> s.getDeleteStatus() == 2)
-                .map(this::mapToResponseDTO);
+                .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
+                .map(this::mapToResponseMap);
     }
 
     @Override
     public Optional<Map<String, Object>> getServiceByUuid(String uuid) {
         return serviceRepository.findByUuid(uuid)
-                .filter(s -> s.getDeleteStatus() == 2)
-                .map(this::mapToResponseDTO);
+                .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
+                .map(this::mapToResponseMap);
     }
 
     @Override
     public Optional<Map<String, Object>> getServiceBySlug(String slug) {
         return serviceRepository.findBySlug(slug)
-                .filter(s -> s.getDeleteStatus() == 2)
-                .map(this::mapToResponseDTO);
+                .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
+                .map(this::mapToResponseMap);
     }
 
     @Override
     public List<Map<String, Object>> getAllActiveServices() {
         return serviceRepository.findAllActiveServices()
                 .stream()
-                .map(this::mapToResponseDTO)
+                .filter(s -> s.isActive() && s.isDisplayStatus())
+                .map(this::mapToResponseMap)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<Map<String, Object>> getServiceWithDetailsById(Long id) {
+        Optional<Services> serviceOptional = serviceRepository.findById(id)
+                .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus());
+        if (serviceOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Services service = serviceOptional.get();
+        List<ServiceDetailResponseDTO> serviceDetails = serviceDetailRepository.findByServiceId(id)
+                .stream()
+                .filter(sd -> sd.getDeleteStatus() == 2 && sd.isActive() && sd.isDisplayStatus())
+                .map(this::mapToServiceDetailResponseDTO)
+                .collect(Collectors.toList());
+
+        ServiceResponseDTO serviceResponseDTO = mapToServiceResponseDTO(service);
+        serviceResponseDTO.setServiceDetails(serviceDetails);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", serviceResponseDTO.getId());
+        response.put("uuid", serviceResponseDTO.getUuid());
+        response.put("name", serviceResponseDTO.getName());
+        response.put("description", serviceResponseDTO.getDescription());
+        response.put("subCategoryId", serviceResponseDTO.getSubCategoryId());
+        response.put("subCategoryName", serviceResponseDTO.getSubCategoryName());
+        response.put("categoryId", serviceResponseDTO.getCategoryId());
+        response.put("categoryName", serviceResponseDTO.getCategoryName());
+        response.put("iconUrl", serviceResponseDTO.getIconUrl());
+        response.put("image", serviceResponseDTO.getImage());
+        response.put("metaTitle", serviceResponseDTO.getMetaTitle());
+        response.put("metaKeyword", serviceResponseDTO.getMetaKeyword());
+        response.put("metaDescription", serviceResponseDTO.getMetaDescription());
+        response.put("slug", serviceResponseDTO.getSlug());
+        response.put("active", serviceResponseDTO.isActive());
+        response.put("displayStatus", serviceResponseDTO.isDisplayStatus());
+        response.put("showOnHome", serviceResponseDTO.isShowOnHome());
+        response.put("createdAt", serviceResponseDTO.getCreatedAt());
+        response.put("updatedAt", serviceResponseDTO.getUpdatedAt());
+        response.put("createdById", serviceResponseDTO.getCreatedById());
+        response.put("serviceDetails", serviceResponseDTO.getServiceDetails());
+        return Optional.of(response);
     }
 
     @Override
@@ -152,7 +198,7 @@ public class ServiceServiceImpl implements ServiceService {
         service.setCreatedBy(createdBy);
 
         Services updatedService = serviceRepository.save(service);
-        return mapToResponseDTO(updatedService);
+        return mapToResponseMap(updatedService);
     }
 
     @Override
@@ -175,64 +221,69 @@ public class ServiceServiceImpl implements ServiceService {
         serviceRepository.save(service);
     }
 
-    private Map<String, Object> mapToResponseDTO(Services service) {
+    private ServiceResponseDTO mapToServiceResponseDTO(Services service) {
+        ServiceResponseDTO dto = new ServiceResponseDTO();
+        dto.setId(service.getId());
+        dto.setUuid(service.getUuid());
+        dto.setName(service.getName());
+        dto.setDescription(service.getDescription());
+        dto.setSubCategoryId(service.getSubCategory().getId());
+        dto.setSubCategoryName(service.getSubCategory().getName());
+        dto.setCategoryId(service.getSubCategory().getCategory().getId());
+        dto.setCategoryName(service.getSubCategory().getCategory().getName());
+        dto.setIconUrl(service.getIconUrl());
+        dto.setImage(service.getImage());
+        dto.setMetaTitle(service.getMetaTitle());
+        dto.setMetaKeyword(service.getMetaKeyword());
+        dto.setMetaDescription(service.getMetaDescription());
+        dto.setSlug(service.getSlug());
+        dto.setActive(service.isActive());
+        dto.setDisplayStatus(service.isDisplayStatus());
+        dto.setShowOnHome(service.isShowOnHome());
+        dto.setCreatedAt(service.getCreatedAt());
+        dto.setUpdatedAt(service.getUpdatedAt());
+        dto.setCreatedById(service.getCreatedBy() != null ? service.getCreatedBy().getId() : null);
+        return dto;
+    }
+
+    private ServiceDetailResponseDTO mapToServiceDetailResponseDTO(ServiceDetail serviceDetail) {
+        ServiceDetailResponseDTO dto = new ServiceDetailResponseDTO();
+        dto.setId(serviceDetail.getId());
+        dto.setUuid(serviceDetail.getUuid());
+        dto.setHeading(serviceDetail.getHeading());
+        dto.setDetails(serviceDetail.getDetails());
+        dto.setDisplayOrder(serviceDetail.getDisplayOrder());
+        dto.setServiceId(serviceDetail.getService().getId());
+        dto.setActive(serviceDetail.isActive());
+        dto.setCreatedAt(serviceDetail.getCreatedAt());
+        dto.setUpdatedAt(serviceDetail.getUpdatedAt());
+        dto.setCreatedById(serviceDetail.getCreatedBy() != null ? serviceDetail.getCreatedBy().getId() : null);
+        return dto;
+    }
+
+    private Map<String, Object> mapToResponseMap(Services service) {
+        ServiceResponseDTO dto = mapToServiceResponseDTO(service);
         Map<String, Object> response = new HashMap<>();
-        response.put("id", service.getId());
-        response.put("uuid", service.getUuid());
-        response.put("name", service.getName());
-        response.put("description", service.getDescription());
-        response.put("subCategoryId", service.getSubCategory().getId());
-        response.put("iconUrl", service.getIconUrl());
-        response.put("image", service.getImage());
-        response.put("metaTitle", service.getMetaTitle());
-        response.put("metaKeyword", service.getMetaKeyword());
-        response.put("metaDescription", service.getMetaDescription());
-        response.put("slug", service.getSlug());
-        response.put("active", service.isActive());
-        response.put("displayStatus", service.isDisplayStatus());
-        response.put("showOnHome", service.isShowOnHome());
-        response.put("createdAt", service.getCreatedAt());
-        response.put("updatedAt", service.getUpdatedAt());
-        response.put("createdById", service.getCreatedBy() != null ? service.getCreatedBy().getId() : null);
+        response.put("id", dto.getId());
+        response.put("uuid", dto.getUuid());
+        response.put("name", dto.getName());
+        response.put("description", dto.getDescription());
+        response.put("subCategoryId", dto.getSubCategoryId());
+        response.put("subCategoryName", dto.getSubCategoryName());
+        response.put("categoryId", dto.getCategoryId());
+        response.put("categoryName", dto.getCategoryName());
+        response.put("iconUrl", dto.getIconUrl());
+        response.put("image", dto.getImage());
+        response.put("metaTitle", dto.getMetaTitle());
+        response.put("metaKeyword", dto.getMetaKeyword());
+        response.put("metaDescription", dto.getMetaDescription());
+        response.put("slug", dto.getSlug());
+        response.put("active", dto.isActive());
+        response.put("displayStatus", dto.isDisplayStatus());
+        response.put("showOnHome", dto.isShowOnHome());
+        response.put("createdAt", dto.getCreatedAt());
+        response.put("updatedAt", dto.getUpdatedAt());
+        response.put("createdById", dto.getCreatedById());
         return response;
     }
-
-    @Override
-    public Optional<Map<String, Object>> getServiceWithDetailsById(Long id) {
-        Optional<Services> serviceOptional = serviceRepository.findById(id)
-                .filter(s -> s.getDeleteStatus() == 2);
-        if (serviceOptional.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Services service = serviceOptional.get();
-        List<Map<String, Object>> serviceDetails = serviceDetailRepository.findByServiceId(id)
-                .stream()
-                .filter(sd -> sd.getDeleteStatus() == 2)
-                .map(this::mapServiceDetailToResponseDTO)
-                .collect(Collectors.toList());
-
-        Map<String, Object> response = mapToResponseDTO(service);
-        response.put("serviceDetails", serviceDetails);
-        return Optional.of(response);
-    }
-
-    private Map<String, Object> mapServiceDetailToResponseDTO(ServiceDetail serviceDetail) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", serviceDetail.getId());
-        response.put("uuid", serviceDetail.getUuid());
-        response.put("heading", serviceDetail.getHeading());
-        response.put("overview", serviceDetail.getService());
-        response.put("displayOrder", serviceDetail.getDisplayOrder());
-        response.put("serviceId", serviceDetail.getService().getId());
-        response.put("active", serviceDetail.isActive());
-        response.put("createdAt", serviceDetail.getCreatedAt());
-        response.put("updatedAt", serviceDetail.getUpdatedAt());
-        response.put("createdById", serviceDetail.getCreatedBy() != null ? serviceDetail.getCreatedBy().getId() : null);
-        return response;
-    }
-
-
-
-
 }

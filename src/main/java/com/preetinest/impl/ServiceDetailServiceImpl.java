@@ -1,6 +1,7 @@
 package com.preetinest.impl;
 
 import com.preetinest.dto.request.ServiceDetailRequestDTO;
+import com.preetinest.dto.response.ServiceDetailResponseDTO;
 import com.preetinest.entity.ServiceDetail;
 import com.preetinest.entity.Services;
 import com.preetinest.entity.User;
@@ -10,6 +11,7 @@ import com.preetinest.repository.UserRepository;
 import com.preetinest.service.ServiceDetailService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.List;
@@ -17,8 +19,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.springframework.stereotype.Service;
-
 
 @Service
 public class ServiceDetailServiceImpl implements ServiceDetailService {
@@ -49,7 +49,7 @@ public class ServiceDetailServiceImpl implements ServiceDetailService {
         }
 
         Services service = serviceRepository.findById(requestDTO.getServiceId())
-                .filter(s -> s.getDeleteStatus() == 2)
+                .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
                 .orElseThrow(() -> new EntityNotFoundException("Service not found with id: " + requestDTO.getServiceId()));
 
         ServiceDetail serviceDetail = new ServiceDetail();
@@ -59,33 +59,34 @@ public class ServiceDetailServiceImpl implements ServiceDetailService {
         serviceDetail.setDisplayOrder(requestDTO.getDisplayOrder());
         serviceDetail.setService(service);
         serviceDetail.setActive(requestDTO.isActive());
+        serviceDetail.setDisplayStatus(requestDTO.isActive()); // Assuming active maps to displayStatus
         serviceDetail.setDeleteStatus(2);
         serviceDetail.setCreatedBy(createdBy);
 
         ServiceDetail savedServiceDetail = serviceDetailRepository.save(serviceDetail);
-        return mapToResponseDTO(savedServiceDetail);
+        return mapToResponseMap(savedServiceDetail);
     }
 
     @Override
     public Optional<Map<String, Object>> getServiceDetailById(Long id) {
         return serviceDetailRepository.findById(id)
-                .filter(sd -> sd.getDeleteStatus() == 2)
-                .map(this::mapToResponseDTO);
+                .filter(sd -> sd.getDeleteStatus() == 2 && sd.isActive() && sd.isDisplayStatus())
+                .map(this::mapToResponseMap);
     }
 
     @Override
     public Optional<Map<String, Object>> getServiceDetailByUuid(String uuid) {
         return serviceDetailRepository.findByUuid(uuid)
-                .filter(sd -> sd.getDeleteStatus() == 2)
-                .map(this::mapToResponseDTO);
+                .filter(sd -> sd.getDeleteStatus() == 2 && sd.isActive() && sd.isDisplayStatus())
+                .map(this::mapToResponseMap);
     }
 
     @Override
     public List<Map<String, Object>> getServiceDetailsByServiceId(Long serviceId) {
         return serviceDetailRepository.findByServiceId(serviceId)
                 .stream()
-                .filter(sd -> sd.getDeleteStatus() == 2)
-                .map(this::mapToResponseDTO)
+                .filter(sd -> sd.getDeleteStatus() == 2 && sd.isActive() && sd.isDisplayStatus())
+                .map(this::mapToResponseMap)
                 .collect(Collectors.toList());
     }
 
@@ -106,7 +107,7 @@ public class ServiceDetailServiceImpl implements ServiceDetailService {
         }
 
         Services service = serviceRepository.findById(requestDTO.getServiceId())
-                .filter(s -> s.getDeleteStatus() == 2)
+                .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
                 .orElseThrow(() -> new EntityNotFoundException("Service not found with id: " + requestDTO.getServiceId()));
 
         serviceDetail.setHeading(requestDTO.getHeading());
@@ -114,10 +115,11 @@ public class ServiceDetailServiceImpl implements ServiceDetailService {
         serviceDetail.setDisplayOrder(requestDTO.getDisplayOrder());
         serviceDetail.setService(service);
         serviceDetail.setActive(requestDTO.isActive());
+        serviceDetail.setDisplayStatus(requestDTO.isActive()); // Assuming active maps to displayStatus
         serviceDetail.setCreatedBy(createdBy);
 
         ServiceDetail updatedServiceDetail = serviceDetailRepository.save(serviceDetail);
-        return mapToResponseDTO(updatedServiceDetail);
+        return mapToResponseMap(updatedServiceDetail);
     }
 
     @Override
@@ -135,21 +137,38 @@ public class ServiceDetailServiceImpl implements ServiceDetailService {
 
         serviceDetail.setDeleteStatus(1);
         serviceDetail.setActive(false);
+        serviceDetail.setDisplayStatus(false);
         serviceDetailRepository.save(serviceDetail);
     }
 
-    private Map<String, Object> mapToResponseDTO(ServiceDetail serviceDetail) {
+    private ServiceDetailResponseDTO mapToResponseDTO(ServiceDetail serviceDetail) {
+        ServiceDetailResponseDTO dto = new ServiceDetailResponseDTO();
+        dto.setId(serviceDetail.getId());
+        dto.setUuid(serviceDetail.getUuid());
+        dto.setHeading(serviceDetail.getHeading());
+        dto.setDetails(serviceDetail.getDetails());
+        dto.setDisplayOrder(serviceDetail.getDisplayOrder());
+        dto.setServiceId(serviceDetail.getService().getId());
+        dto.setActive(serviceDetail.isActive());
+        dto.setCreatedAt(serviceDetail.getCreatedAt());
+        dto.setUpdatedAt(serviceDetail.getUpdatedAt());
+        dto.setCreatedById(serviceDetail.getCreatedBy() != null ? serviceDetail.getCreatedBy().getId() : null);
+        return dto;
+    }
+
+    private Map<String, Object> mapToResponseMap(ServiceDetail serviceDetail) {
+        ServiceDetailResponseDTO dto = mapToResponseDTO(serviceDetail);
         Map<String, Object> response = new HashMap<>();
-        response.put("id", serviceDetail.getId());
-        response.put("uuid", serviceDetail.getUuid());
-        response.put("heading", serviceDetail.getHeading());
-        response.put("details", serviceDetail.getDetails());
-        response.put("displayOrder", serviceDetail.getDisplayOrder());
-        response.put("serviceId", serviceDetail.getService().getId());
-        response.put("active", serviceDetail.isActive());
-        response.put("createdAt", serviceDetail.getCreatedAt());
-        response.put("updatedAt", serviceDetail.getUpdatedAt());
-        response.put("createdById", serviceDetail.getCreatedBy() != null ? serviceDetail.getCreatedBy().getId() : null);
+        response.put("id", dto.getId());
+        response.put("uuid", dto.getUuid());
+        response.put("heading", dto.getHeading());
+        response.put("details", dto.getDetails());
+        response.put("displayOrder", dto.getDisplayOrder());
+        response.put("serviceId", dto.getServiceId());
+        response.put("active", dto.isActive());
+        response.put("createdAt", dto.getCreatedAt());
+        response.put("updatedAt", dto.getUpdatedAt());
+        response.put("createdById", dto.getCreatedById());
         return response;
     }
 }
